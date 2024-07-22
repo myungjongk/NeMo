@@ -823,9 +823,20 @@ class FrameBatchASR:
     def transcribe(self, tokens_per_chunk: int, delay: int, keep_logits: bool = False):
         self.infer_logits(keep_logits)
         self.unmerged = []
+        first_segment = False
         for pred in self.all_preds:
             decoded = pred.tolist()
-            self.unmerged += decoded[len(decoded) - 1 - delay : len(decoded) - 1 - delay + tokens_per_chunk]
+            middle = decoded[len(decoded) - 1 - delay : len(decoded) - 1 - delay + tokens_per_chunk]
+
+            if not first_segment:
+                for i in middle:
+                    if i != self.blank_id:
+                        first_segment = True
+                        break
+                if first_segment:
+                    self.unmerged += decoded[0 : len(decoded) - 1 - delay] # add left padding transcription
+            self.unmerged += middle
+
         hypothesis = self.greedy_merge(self.unmerged)
         if not keep_logits:
             return hypothesis
